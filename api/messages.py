@@ -52,6 +52,10 @@ REQUIRED_CURRENT_PASSWORD = {
     MESSAGE: "current_Password required!"
 }
 
+REQUIRED_COURSE = {
+    MESSAGE: "courses required!"
+}
+
 PASSWORD_NECESSITY = {
     MESSAGE: "Password is not acceptable"
 }
@@ -82,4 +86,16 @@ PASSWORD_RESET_LINK_SENT = {
 
 PASSWORD_MISMATCH = {
     MESSAGE: "Passwords does not match!"
+}
+
+COURSES_ENROLLED = {
+    MESSAGE: "Courses successfully enrolled!"
+}
+
+COURSES_REMOVED = {
+    MESSAGE: "Courses successfully removed!"
+}
+
+COURSES_NOT_FOUND = {
+    MESSAGE: "Courses not found!"
 }

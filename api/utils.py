@@ -1,7 +1,8 @@
 from django.contrib.auth.hashers import make_password
 from rest_framework.authtoken.models import Token
 import messages
-from serializers import UserProfileSerializer, UserRegistrationSerializer
+from serializers import UserProfileSerializer, StudentRegistrationSerializer
+from models import Course
 from validations_utils import ValidationException
 from rest_framework import status
 
@@ -28,7 +29,7 @@ def hash_password(password):
 
 
 def create_user(data):
-    user_serializer = UserRegistrationSerializer(data=data)
+    user_serializer = StudentRegistrationSerializer(data=data)
     if user_serializer.is_valid():
         user = user_serializer.save()
         token = Token.objects.create(user=user)
@@ -88,3 +89,18 @@ def change_password(current_password, new_password, user):
     else:
         raise ValidationException(messages.CURRENT_PASSWORD_INCORRECT,
                                   status.HTTP_401_UNAUTHORIZED)
+
+
+def validate_available_courses(data):
+    try:
+        available_courses = []
+        course_list = data['courses']
+        for course in course_list:
+            try:
+                available_courses.append(Course.objects.get(name=course))
+            except Course.DoesNotExist:
+                pass
+        return available_courses
+    except KeyError:
+        raise ValidationException(messages.REQUIRED_COURSE,
+                                  status=status.HTTP_400_BAD_REQUEST)

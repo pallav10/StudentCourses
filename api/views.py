@@ -8,18 +8,19 @@ from rest_framework.generics import CreateAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from serializers import UserRegistrationSerializer
+from serializers import StudentRegistrationSerializer, EnrollCourseSerializer, CourseSerializer
 from permissions import UserPermissions
 import utils
 import validations_utils
 import messages
+from models import Course, StudentCourse
 from validations_utils import ValidationException
 
 
-class UserRegistrationAPIView(CreateAPIView):
+class StudentRegistrationAPIView(CreateAPIView):
     authentication_classes = ()
     permission_classes = ()
-    serializer_class = UserRegistrationSerializer
+    serializer_class = StudentRegistrationSerializer
 
     def create(self, request, *args, **kwargs):
         data = validations_utils.email_validation(
@@ -172,3 +173,103 @@ class ChangePasswordView(APIView):
                 return Response(password, status=status.HTTP_200_OK)
             except ValidationException as e:
                 return Response(e.errors, status=e.status)
+
+
+class EnrollStudentView(APIView):
+    permission_classes = [UserPermissions, IsAuthenticated]
+
+    def post(self, request):
+        """
+        ### Change Password
+        * While changing password for user registered with email, PUT request
+        requires two fields and their values:
+            * current_password - String
+            * new_password - String
+        * Possible HTTP status codes and JSON response:
+            * `HTTP_200_OK` - If password change was successful:
+                    {
+                     "user_id": integer,
+                     "message": "Password updated successfully"
+                    }
+            * `HTTP_401_UNAUTHORIZED` - If user provided incorrect value for
+            current_password:
+                    {
+                     "message": "Current password is incorrect."
+                    }
+            * `HTTP_400_BAD_REQUEST` - If new_password is same as current_password:
+                    {
+                     "message": "New password cannot be same as current password"
+                    }
+            * `HTTP_500_INTERNAL_SERVER_ERROR` - Internal server error
+            :param pk:
+            :param request:
+        """
+        data = request.data
+        try:
+            available_courses = utils.validate_available_courses(data)
+        except ValidationException as e:
+            return Response(e.errors, status=e.status)
+        for course in available_courses:
+            data['course'] = course.id
+            data['student'] = request.user.id
+            serializer = EnrollCourseSerializer(data=data)
+            if serializer.is_valid():
+                course = Course.objects.get(id=course.id)
+                if course.student_count >= course.max_student:
+                    return Response(
+                        "Course enrollment is full, please try to enroll in other course",
+                        status=status.HTTP_400_BAD_REQUEST)
+                else:
+                    course.student_count += 1
+                    course.save()
+                    serializer.save()
+            else:
+                return Response(serializer.errors, status.HTTP_400_BAD_REQUEST)
+        return Response(messages.COURSES_ENROLLED, status=status.HTTP_201_CREATED)
+
+
+class ListCourses(APIView):
+    """
+    List all snippets, or create a new snippet.
+    """
+    permission_classes = (AllowAny,)
+
+    def get(self, request, format=None):
+        courses = Course.objects.all()
+        serializer = CourseSerializer(courses, many=True)
+        return Response(serializer.data)
+
+
+class DeleteCourseView(APIView):
+    """
+    List all snippets, or create a new snippet.
+    """
+    permission_classes = [UserPermissions, IsAuthenticated]
+
+    def post(self, request):
+        data = request.data
+        try:
+            available_courses = utils.validate_available_courses(data)
+        except ValidationException as e:
+            return Response(e.errors, status=e.status)
+        if available_courses:
+            for course in available_courses:
+                student_id = request.user.id
+                course_id = course.id
+                data['course'] = course_id
+                data['student'] = student_id
+                try:
+                    student_course = StudentCourse.objects.get(student_id=student_id,
+                                                               course_id=course_id)
+                    course = Course.objects.get(id=course.id)
+                    course.student_count -= 1
+                    course.save()
+                    student_course.delete()
+                except StudentCourse.DoesNotExist:
+                    return Response("can't remove this course, enroll first",
+                                    status.HTTP_404_NOT_FOUND)
+            return Response(messages.COURSES_REMOVED,
+                            status=status.HTTP_201_CREATED)
+        else:
+            return Response(messages.COURSES_NOT_FOUND,
+                            status=status.HTTP_404_NOT_FOUND)

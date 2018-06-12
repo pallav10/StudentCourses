@@ -4,10 +4,10 @@ from django.utils.translation import ugettext_lazy as _
 from rest_framework import serializers
 from rest_framework.authtoken.models import Token
 
-from models import User
+from models import User, Course, StudentCourse
 
 
-class UserRegistrationSerializer(serializers.ModelSerializer):
+class StudentRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
     confirm_password = serializers.CharField(write_only=True)
 
@@ -17,7 +17,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         del validated_data["confirm_password"]
-        return super(UserRegistrationSerializer, self).create(validated_data)
+        return super(StudentRegistrationSerializer, self).create(validated_data)
 
     def validate(self, attrs):
         if attrs.get('password') != attrs.get('confirm_password'):
@@ -62,6 +62,22 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'email', 'id', 'username',
             'created', 'country_code', 'contact_no', 'city',
             'state', 'country', 'is_password_changed')
+
+
+# serialize data of courses.
+class CourseSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Course
+        fields = ('name', 'description', 'student_count', 'max_student')
+
+
+# serialize data of courses.
+class EnrollCourseSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = StudentCourse
+        fields = '__all__'
 
 
 class TokenSerializer(serializers.ModelSerializer):
